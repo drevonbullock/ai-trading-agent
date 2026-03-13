@@ -1,0 +1,14 @@
+anthropic
+requests
+python-dotenv
+pandas
+pandas-ta
+matplotlib
+mplfinance
+alpaca-trade-api
+oandapyV20
+pycoingecko
+apscheduler
+python-telegram-bot
+aiohttp
+numpy

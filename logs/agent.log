@@ -1,0 +1,124 @@
+2026-03-12 23:16:42  INFO      AI Trading Agent — manual run
+2026-03-12 23:16:43  INFO      [telegram] send_message — OK (message_id=11)
+2026-03-12 23:16:43  INFO      ────────────────────────────────────────────────────────────
+2026-03-12 23:16:43  INFO      Scan started at 2026-03-13 03:16 UTC
+2026-03-12 23:16:49  INFO      Scan found 4 qualifying signal(s).
+2026-03-12 23:16:49  INFO      Processing signal: SOL LONG  confidence=50%  R:R=14.44
+2026-03-12 23:16:50  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/SOL_crypto_LONG.png
+2026-03-12 23:16:50  WARNING   Could not build analysis dict for SOL: build_dataframe() missing 1 required positional argument: 'market' — Claude prompt will be sparse.
+2026-03-12 23:16:55  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:16:55  INFO      Claude verdict for SOL: TAKE 🟢
+2026-03-12 23:16:56  INFO      [telegram] send_message — OK (message_id=12)
+2026-03-12 23:16:56  INFO      [telegram] Signal text delivered for SOL LONG
+2026-03-12 23:16:58  INFO      [telegram] send_photo — OK (message_id=13)
+2026-03-12 23:16:58  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/SOL_crypto_LONG.png
+2026-03-12 23:16:58  INFO      Alert delivered for SOL LONG
+2026-03-12 23:16:59  INFO      Processing signal: GBP_USD LONG  confidence=45%  R:R=2.36
+2026-03-12 23:17:01  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-12 23:17:02  WARNING   Could not build analysis dict for GBP_USD: build_dataframe() missing 1 required positional argument: 'market' — Claude prompt will be sparse.
+2026-03-12 23:17:07  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:17:07  INFO      Claude verdict for GBP_USD: CAUTIOUS_LONG ⚠️
+2026-03-12 23:17:08  ERROR     [telegram] send_message failed — HTTP 400 | Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 40
+2026-03-12 23:17:08  WARNING   [telegram] Signal text FAILED for GBP_USD LONG
+2026-03-12 23:17:10  INFO      [telegram] send_photo — OK (message_id=14)
+2026-03-12 23:17:10  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-12 23:17:10  WARNING   Alert delivery failed for GBP_USD LONG
+2026-03-12 23:17:11  INFO      Processing signal: BTC SHORT  confidence=40%  R:R=6.14
+2026-03-12 23:17:12  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-12 23:17:12  WARNING   Could not build analysis dict for BTC: build_dataframe() missing 1 required positional argument: 'market' — Claude prompt will be sparse.
+2026-03-12 23:17:18  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:17:18  INFO      Claude verdict for BTC: WEAK_SHORT ⚠️
+2026-03-12 23:17:19  ERROR     [telegram] send_message failed — HTTP 400 | Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 33
+2026-03-12 23:17:19  WARNING   [telegram] Signal text FAILED for BTC SHORT
+2026-03-12 23:17:21  INFO      [telegram] send_photo — OK (message_id=15)
+2026-03-12 23:17:21  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-12 23:17:21  WARNING   Alert delivery failed for BTC SHORT
+2026-03-12 23:17:22  INFO      Processing signal: EUR_USD LONG  confidence=40%  R:R=2.14
+2026-03-12 23:17:23  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/EUR-USD_forex_LONG.png
+2026-03-12 23:17:23  WARNING   Could not build analysis dict for EUR_USD: build_dataframe() missing 1 required positional argument: 'market' — Claude prompt will be sparse.
+2026-03-12 23:17:28  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:17:28  INFO      Claude verdict for EUR_USD: WEAK_LONG ⚠️
+2026-03-12 23:17:29  ERROR     [telegram] send_message failed — HTTP 400 | Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 36
+2026-03-12 23:17:29  WARNING   [telegram] Signal text FAILED for EUR_USD LONG
+2026-03-12 23:17:31  INFO      [telegram] send_photo — OK (message_id=16)
+2026-03-12 23:17:31  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/EUR-USD_forex_LONG.png
+2026-03-12 23:17:31  WARNING   Alert delivery failed for EUR_USD LONG
+2026-03-12 23:17:33  INFO      [telegram] send_message — OK (message_id=17)
+2026-03-12 23:17:33  INFO      Scan complete in 50.2s — 1/4 alerts delivered.
+2026-03-12 23:17:33  INFO      ────────────────────────────────────────────────────────────
+2026-03-12 23:21:03  INFO      AI Trading Agent — manual run
+2026-03-12 23:21:04  INFO      [telegram] send_message — OK (message_id=18)
+2026-03-12 23:21:04  INFO      ────────────────────────────────────────────────────────────
+2026-03-12 23:21:04  INFO      Scan started at 2026-03-13 03:21 UTC
+2026-03-12 23:21:07  INFO      Scan found 3 qualifying signal(s).
+2026-03-12 23:21:07  INFO      Processing signal: SOL LONG  confidence=50%  R:R=14.44
+2026-03-12 23:21:09  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/SOL_crypto_LONG.png
+2026-03-12 23:21:10  WARNING   Could not build analysis dict for SOL: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-12 23:21:16  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:21:16  INFO      Claude verdict for SOL: CAUTIOUS_LONG 🟡
+2026-03-12 23:21:17  INFO      [telegram] send_message — OK (message_id=19)
+2026-03-12 23:21:17  INFO      [telegram] Signal text delivered for SOL LONG
+2026-03-12 23:21:19  INFO      [telegram] send_photo — OK (message_id=20)
+2026-03-12 23:21:19  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/SOL_crypto_LONG.png
+2026-03-12 23:21:19  INFO      Alert delivered for SOL LONG
+2026-03-12 23:21:20  INFO      Processing signal: GBP_USD LONG  confidence=45%  R:R=2.36
+2026-03-12 23:21:21  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-12 23:21:21  WARNING   Could not build analysis dict for GBP_USD: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-12 23:21:27  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:21:27  INFO      Claude verdict for GBP_USD: CAUTIOUS_LONG 🟡
+2026-03-12 23:21:28  INFO      [telegram] send_message — OK (message_id=21)
+2026-03-12 23:21:28  INFO      [telegram] Signal text delivered for GBP_USD LONG
+2026-03-12 23:21:31  INFO      [telegram] send_photo — OK (message_id=22)
+2026-03-12 23:21:31  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-12 23:21:31  INFO      Alert delivered for GBP_USD LONG
+2026-03-12 23:21:32  INFO      Processing signal: BTC SHORT  confidence=40%  R:R=6.14
+2026-03-12 23:21:36  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-12 23:21:38  WARNING   Could not build analysis dict for BTC: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-12 23:21:43  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:21:43  INFO      Claude verdict for BTC: WEAK_SHORT 🔻
+2026-03-12 23:21:44  INFO      [telegram] send_message — OK (message_id=23)
+2026-03-12 23:21:44  INFO      [telegram] Signal text delivered for BTC SHORT
+2026-03-12 23:21:47  INFO      [telegram] send_photo — OK (message_id=24)
+2026-03-12 23:21:47  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-12 23:21:47  INFO      Alert delivered for BTC SHORT
+2026-03-12 23:21:49  INFO      [telegram] send_message — OK (message_id=25)
+2026-03-12 23:21:49  INFO      Scan complete in 45.3s — 3/3 alerts delivered.
+2026-03-12 23:21:49  INFO      ────────────────────────────────────────────────────────────
+2026-03-12 23:23:43  INFO      AI Trading Agent — manual run
+2026-03-12 23:23:45  INFO      [telegram] send_message — OK (message_id=26)
+2026-03-12 23:23:45  INFO      ────────────────────────────────────────────────────────────
+2026-03-12 23:23:45  INFO      Scan started at 2026-03-13 03:23 UTC
+2026-03-12 23:23:54  INFO      Scan found 3 qualifying signal(s).
+2026-03-12 23:23:54  INFO      Processing signal: SOL LONG  confidence=50%  R:R=14.44
+2026-03-12 23:23:56  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/SOL_crypto_LONG.png
+2026-03-12 23:23:56  WARNING   Could not build analysis dict for SOL: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-12 23:24:01  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:24:01  INFO      Claude verdict for SOL: CAUTIOUS_LONG ⚠️
+2026-03-12 23:24:02  INFO      [telegram] send_message — OK (message_id=27)
+2026-03-12 23:24:02  INFO      [telegram] Signal text delivered for SOL LONG
+2026-03-12 23:24:04  INFO      [telegram] send_photo — OK (message_id=28)
+2026-03-12 23:24:04  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/SOL_crypto_LONG.png
+2026-03-12 23:24:04  INFO      Alert delivered for SOL LONG
+2026-03-12 23:24:05  INFO      Processing signal: GBP_USD LONG  confidence=45%  R:R=2.36
+2026-03-12 23:24:06  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-12 23:24:08  WARNING   Could not build analysis dict for GBP_USD: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-12 23:24:14  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:24:14  INFO      Claude verdict for GBP_USD: NEUTRAL_BULLISH 🟡
+2026-03-12 23:24:14  INFO      [telegram] send_message — OK (message_id=29)
+2026-03-12 23:24:14  INFO      [telegram] Signal text delivered for GBP_USD LONG
+2026-03-12 23:24:17  INFO      [telegram] send_photo — OK (message_id=30)
+2026-03-12 23:24:17  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-12 23:24:17  INFO      Alert delivered for GBP_USD LONG
+2026-03-12 23:24:18  INFO      Processing signal: BTC SHORT  confidence=40%  R:R=6.14
+2026-03-12 23:24:18  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-12 23:24:19  WARNING   Could not build analysis dict for BTC: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-12 23:24:24  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-12 23:24:24  INFO      Claude verdict for BTC: WEAK_SHORT 🔻
+2026-03-12 23:24:26  INFO      [telegram] send_message — OK (message_id=31)
+2026-03-12 23:24:26  INFO      [telegram] Signal text delivered for BTC SHORT
+2026-03-12 23:24:30  INFO      [telegram] send_photo — OK (message_id=32)
+2026-03-12 23:24:30  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-12 23:24:30  INFO      Alert delivered for BTC SHORT
+2026-03-12 23:24:32  INFO      [telegram] send_message — OK (message_id=33)
+2026-03-12 23:24:32  INFO      Scan complete in 46.8s — 3/3 alerts delivered.
+2026-03-12 23:24:32  INFO      ────────────────────────────────────────────────────────────
