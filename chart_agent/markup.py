@@ -1,6 +1,7 @@
 """
 chart_agent/markup.py
-Generates annotated candlestick chart images using matplotlib and mplfinance.
+Generates annotated candlestick chart images using pure matplotlib.
+TradingView-style dark theme with manual candle drawing (no mplfinance).
 """
 from __future__ import annotations
 
@@ -15,7 +16,6 @@ matplotlib.use("Agg")          # headless — no display required
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
-import mplfinance as mpf
 
 from chart_agent.ta_analysis import run_full_analysis
 from signal_agent.signal_engine import Signal
@@ -23,41 +23,27 @@ from signal_agent.signal_engine import Signal
 
 # ── Theme constants ────────────────────────────────────────────────────────────
 
-BG          = "#1c2433"   # chart background
-BG_PANEL    = "#222d3f"   # candle panel background
-FG          = "#e2e8f0"   # primary text / axes
-BULL_COLOUR = "#22c55e"   # green
-BEAR_COLOUR = "#ef4444"   # red
-FIB_COLOUR  = "#60a5fa"   # blue
-ENTRY_COLOUR= "#fbbf24"   # yellow
-TEXT_DIM    = "#94a3b8"   # muted text
+BG           = "#131722"   # TradingView dark background
+BG_PANEL     = "#1e2130"   # panel / box backgrounds
+FG           = "#d1d4dc"   # primary text
+BULL_COLOUR  = "#26a69a"   # teal-green bull candles
+BEAR_COLOUR  = "#ef5350"   # red bear candles
+ENTRY_COLOUR = "#f59e0b"   # amber entry zone
+TEXT_DIM     = "#64748b"   # muted text
+SPINE_COLOR  = "#2a3245"   # axis spine / box borders
+GRID_COLOR   = "#1e2a3a"   # subtle grid lines
 
-_MPLF_STYLE = mpf.make_mpf_style(
-    base_mpf_style="nightclouds",
-    marketcolors=mpf.make_marketcolors(
-        up=BULL_COLOUR, down=BEAR_COLOUR,
-        wick={"up": BULL_COLOUR, "down": BEAR_COLOUR},
-        volume={"up": BULL_COLOUR, "down": BEAR_COLOUR},
-        edge="inherit",
-    ),
-    facecolor=BG_PANEL,
-    figcolor=BG,
-    gridcolor="#2d3f55",
-    gridstyle="--",
-    gridaxis="both",
-    rc={
-        "axes.labelcolor":  FG,
-        "xtick.color":      TEXT_DIM,
-        "ytick.color":      TEXT_DIM,
-        "text.color":       FG,
-        "axes.titlecolor":  FG,
-        "figure.facecolor": BG,
-    },
-)
+# Per-ratio fibonacci colours (TradingView style)
+_FIB_COLORS: Dict[str, str] = {
+    "0.236": "#f44336",
+    "0.382": "#ff9800",
+    "0.5":   "#ffffff",
+    "0.618": "#4caf50",
+    "0.786": "#2196f3",
+}
 
-# Fibonacci ratios to annotate on the chart
-_FIB_LABELS = {"0.236": "0.236", "0.382": "0.382", "0.5": "0.5",
-               "0.618": "0.618", "0.786": "0.786"}
+# Fibonacci ratios to annotate
+_FIB_SHOW = set(_FIB_COLORS.keys())
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -115,20 +101,12 @@ def draw_chart(
     output_path: str,
 ) -> str:
     """
-    Generate a fully annotated candlestick chart and save it as a PNG.
+    Generate a TradingView-style annotated candlestick chart using pure matplotlib.
 
-    Annotations drawn:
-      - Candlestick candles (bull = green, bear = red) + volume panel
-      - Supply zones    : semi-transparent red rectangles
-      - Demand zones    : semi-transparent green rectangles
-      - Support levels  : green dashed horizontal lines
-      - Resistance lvls : red dashed horizontal lines
-      - Fibonacci levels: blue dashed lines with ratio labels
-      - Entry zone      : yellow shaded rectangle
-      - Target line     : solid green line labelled "TARGET"
-      - Stop-loss line  : solid red line labelled "STOP"
-      - Trend arrows    : text annotation in top-right corner
-      - Title bar       : asset · timeframe · direction · confluence/bias
+    Layout  : GridSpec(2,1) — 75% price panel / 25% volume panel
+    Candles : Manual Rectangle patches (bodies) + ax.plot lines (wicks)
+    Layers  : supply/demand zones, fibonacci, entry zone, target, stop
+    Style   : Dark theme #131722, right-side price labels, info box, legend
 
     Args:
         df          : OHLCV DataFrame (any index — will be converted)
@@ -141,239 +119,218 @@ def draw_chart(
     """
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
-    # Prep data
-    df_plot = _prepare_df(df)
-    n = len(df_plot)
+    # ── Prep data ──────────────────────────────────────────────────────────────
+    df_plot = _prepare_df(df).iloc[-60:]
+    n       = len(df_plot)
+    opens   = df_plot["open"].values
+    highs   = df_plot["high"].values
+    lows    = df_plot["low"].values
+    closes  = df_plot["close"].values
+    vols    = df_plot["volume"].values
 
-    # Extract analysis layers
-    kl       = analysis.get("key_levels", {})
-    fib      = analysis.get("fibonacci", {})
-    sdz      = analysis.get("supply_demand_zones", {})
-    ms       = analysis.get("market_structure", {})
-
-    supports     = kl.get("support", [])
-    resistances  = kl.get("resistance", [])
-    fib_levels   = fib.get("levels", {})
+    # ── Extract analysis layers ────────────────────────────────────────────────
+    fib_levels   = analysis.get("fibonacci", {}).get("levels", {})
+    sdz          = analysis.get("supply_demand_zones", {})
     demand_zones = sdz.get("demand_zones", [])
     supply_zones = sdz.get("supply_zones", [])
 
-    # ── Build mplfinance addplot lines ─────────────────────────────────────────
-    addplots: list = []
+    # ── Figure + layout ────────────────────────────────────────────────────────
+    fig = plt.figure(figsize=(14, 8), facecolor=BG)
+    gs  = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0)
+    ax     = fig.add_subplot(gs[0])
+    ax_vol = fig.add_subplot(gs[1], sharex=ax)
 
-    def _hline_series(price: float) -> pd.Series:
-        """Return a constant-value Series aligned to the DataFrame index."""
-        return pd.Series(price, index=df_plot.index)
+    for a in (ax, ax_vol):
+        a.set_facecolor(BG)
+        for spine in a.spines.values():
+            spine.set_edgecolor(SPINE_COLOR)
+            spine.set_linewidth(0.5)
+        a.tick_params(colors=TEXT_DIM, labelsize=7, direction="in", length=3)
 
-    # Support lines
-    for sup in supports[:3]:
-        addplots.append(
-            mpf.make_addplot(
-                _hline_series(sup), color=BULL_COLOUR,
-                linestyle="--", width=0.8, alpha=0.7,
-            )
-        )
+    ax.grid(True, color=GRID_COLOR, linewidth=0.5, zorder=0)
+    ax_vol.grid(False)
 
-    # Resistance lines
-    for res in resistances[:3]:
-        addplots.append(
-            mpf.make_addplot(
-                _hline_series(res), color=BEAR_COLOUR,
-                linestyle="--", width=0.8, alpha=0.7,
-            )
-        )
+    # ── Draw candles ───────────────────────────────────────────────────────────
+    CANDLE_W = 0.6
+    for i in range(n):
+        o, h, l, c = opens[i], highs[i], lows[i], closes[i]
+        colour = BULL_COLOUR if c >= o else BEAR_COLOUR
 
-    # Fibonacci lines (selected ratios only)
+        # Wick
+        ax.plot([i, i], [l, h], color=colour, linewidth=0.8, zorder=2,
+                solid_capstyle="round")
+
+        # Body (avoid zero-height doji by using a minimum sliver)
+        body_lo = min(o, c)
+        body_h  = max(abs(c - o), (h - l) * 0.002)
+        ax.add_patch(mpatches.Rectangle(
+            (i - CANDLE_W / 2, body_lo), CANDLE_W, body_h,
+            facecolor=colour, edgecolor=colour, linewidth=0, zorder=3,
+        ))
+
+    # Bug 3 fix: left padding of 1.5 candle widths so first candle isn't clipped
+    ax.set_xlim(-1.5, n + 0.5)
+
+    # Bug 1+2 fix: explicitly lock y-axis to cover candle range PLUS all signal
+    # price levels.  axhline/axhspan don't update autoscale, but if any signal
+    # level lies outside the plotted candle range the chart clips silently.
+    _all_y = (list(lows) + list(highs)
+              + [signal.entry_low, signal.entry_high,
+                 signal.target, signal.stop_loss])
+    _y_lo  = min(_all_y)
+    _y_hi  = max(_all_y)
+    _y_pad = (_y_hi - _y_lo) * 0.06
+    ax.set_ylim(_y_lo - _y_pad, _y_hi + _y_pad)
+
+    # Debug: confirm signal levels vs y-axis range
+    print(
+        f"[markup] DEBUG  entry={signal.entry_low:.5f}–{signal.entry_high:.5f}"
+        f"  TP={signal.target:.5f}  SL={signal.stop_loss:.5f}"
+        f"  y=[{ax.get_ylim()[0]:.5f}, {ax.get_ylim()[1]:.5f}]"
+    )
+
+    # ── Supply zones ───────────────────────────────────────────────────────────
+    tfm_y = ax.get_yaxis_transform()   # x: axes fraction, y: data coords
+
+    for zone in supply_zones[:3]:
+        ax.axhspan(zone["bottom"], zone["top"],
+                   color=BEAR_COLOUR, alpha=0.12, zorder=1)
+        mid_y = (zone["bottom"] + zone["top"]) / 2
+        ax.text(0.005, mid_y, "Supply", transform=tfm_y,
+                color=BEAR_COLOUR, fontsize=6, va="center", ha="left",
+                alpha=0.75, clip_on=True)
+
+    # ── Demand zones ───────────────────────────────────────────────────────────
+    for zone in demand_zones[:3]:
+        ax.axhspan(zone["bottom"], zone["top"],
+                   color=BULL_COLOUR, alpha=0.12, zorder=1)
+        mid_y = (zone["bottom"] + zone["top"]) / 2
+        ax.text(0.005, mid_y, "Demand", transform=tfm_y,
+                color=BULL_COLOUR, fontsize=6, va="center", ha="left",
+                alpha=0.75, clip_on=True)
+
+    # ── Entry zone ─────────────────────────────────────────────────────────────
+    ax.axhspan(signal.entry_low, signal.entry_high, alpha=0.25, color='#f59e0b', zorder=2)
+    ax.axhline(y=signal.entry_low,  color='#f59e0b', linewidth=0.5, alpha=0.8)
+    ax.axhline(y=signal.entry_high, color='#f59e0b', linewidth=0.5, alpha=0.8)
+    ax.text(n - 1, (signal.entry_low + signal.entry_high) / 2,
+            f'  ENTRY\n  {signal.entry_low:.5f}–{signal.entry_high:.5f}',
+            color='#f59e0b', fontsize=7, fontweight='bold', va='center')
+
+    # ── Fibonacci lines ────────────────────────────────────────────────────────
     for ratio, level in fib_levels.items():
-        if ratio in _FIB_LABELS and level:
-            addplots.append(
-                mpf.make_addplot(
-                    _hline_series(level), color=FIB_COLOUR,
-                    linestyle=":", width=0.7, alpha=0.6,
-                )
-            )
+        fc = _FIB_COLORS.get(ratio)
+        if fc and level:
+            ax.axhline(level, color=fc, linewidth=0.8, alpha=0.7,
+                       linestyle="-", zorder=2)
 
-    # Target line
-    addplots.append(
-        mpf.make_addplot(
-            _hline_series(signal.target), color=BULL_COLOUR,
-            linestyle="-", width=1.5, alpha=0.9,
-        )
-    )
+    # ── Target + Stop lines ────────────────────────────────────────────────────
+    ax.axhline(y=signal.target, color='#26a69a', linewidth=1.5, zorder=3)
+    ax.text(n - 1, signal.target, f'  TP {signal.target:.5f}',
+            color='#26a69a', fontsize=8, fontweight='bold', va='center')
 
-    # Stop line
-    addplots.append(
-        mpf.make_addplot(
-            _hline_series(signal.stop_loss), color=BEAR_COLOUR,
-            linestyle="-", width=1.5, alpha=0.9,
-        )
-    )
+    ax.axhline(y=signal.stop_loss, color='#ef5350', linewidth=1.5, zorder=3)
+    ax.text(n - 1, signal.stop_loss, f'  SL {signal.stop_loss:.5f}',
+            color='#ef5350', fontsize=8, fontweight='bold', va='center')
 
-    # ── Render with mplfinance ─────────────────────────────────────────────────
-    trend   = ms.get("trend", "RANGING")
-    dir_sym = "▲ LONG" if signal.direction == "LONG" else "▼ SHORT"
-    title   = (
-        f"{signal.asset}  ·  {signal.market.upper()}  ·  {dir_sym}"
-        f"  ·  Confluence {signal.confluence_score}/6  ·  {trend}"
-    )
-
-    fig, axes = mpf.plot(
-        df_plot,
-        type="candle",
-        style=_MPLF_STYLE,
-        title=title,
-        volume=True,
-        addplot=addplots if addplots else None,
-        figsize=(16, 10),
-        tight_layout=True,
-        returnfig=True,
-        warn_too_much_data=10_000,
-    )
-
-    ax = axes[0]   # main price panel
-    y_min, y_max = ax.get_ylim()
-    x_min, x_max = 0, n - 1
-
-    # ── Shaded rectangles (drawn on axes directly) ─────────────────────────────
-
-    def _shade_zone(ax, bottom: float, top: float, colour: str, alpha: float = 0.12):
-        ax.axhspan(bottom, top, color=colour, alpha=alpha, zorder=1)
-
-    # Supply zones
-    for zone in supply_zones[:4]:
-        _shade_zone(ax, zone["bottom"], zone["top"], BEAR_COLOUR, alpha=0.10)
-        ax.text(
-            0.01, (zone["top"] + zone["bottom"]) / 2,
-            f"Supply  str:{zone['strength']}",
-            transform=ax.get_yaxis_transform(),
-            color=BEAR_COLOUR, fontsize=6.5, alpha=0.75,
-            va="center",
-        )
-
-    # Demand zones
-    for zone in demand_zones[:4]:
-        _shade_zone(ax, zone["bottom"], zone["top"], BULL_COLOUR, alpha=0.10)
-        ax.text(
-            0.01, (zone["top"] + zone["bottom"]) / 2,
-            f"Demand  str:{zone['strength']}",
-            transform=ax.get_yaxis_transform(),
-            color=BULL_COLOUR, fontsize=6.5, alpha=0.75,
-            va="center",
-        )
-
-    # Entry zone
-    entry_mid = (signal.entry_low + signal.entry_high) / 2
-    ax.axhspan(signal.entry_low, signal.entry_high,
-               color=ENTRY_COLOUR, alpha=0.18, zorder=2)
-    ax.text(
-        0.99, entry_mid,
-        f"ENTRY  {_price_fmt(signal.entry_low)} – {_price_fmt(signal.entry_high)}",
-        transform=ax.get_yaxis_transform(),
-        color=ENTRY_COLOUR, fontsize=7.5, alpha=0.95,
-        va="center", ha="right", fontweight="bold",
-    )
-
-    # ── Level labels on right y-axis ──────────────────────────────────────────
-
-    label_right = 0.995   # x position (axes fraction, right-aligned)
-
-    ax.text(label_right, signal.target, f"TARGET  {_price_fmt(signal.target)}",
-            transform=ax.get_yaxis_transform(),
-            color=BULL_COLOUR, fontsize=7.5, va="bottom", ha="right",
-            fontweight="bold")
-
-    ax.text(label_right, signal.stop_loss, f"STOP  {_price_fmt(signal.stop_loss)}",
-            transform=ax.get_yaxis_transform(),
-            color=BEAR_COLOUR, fontsize=7.5, va="top", ha="right",
-            fontweight="bold")
-
-    # Support / resistance labels
-    for i, sup in enumerate(supports[:3]):
-        ax.text(label_right, sup, f"S{i+1}  {_price_fmt(sup)}",
-                transform=ax.get_yaxis_transform(),
-                color=BULL_COLOUR, fontsize=6.5, va="top", ha="right", alpha=0.7)
-
-    for i, res in enumerate(resistances[:3]):
-        ax.text(label_right, res, f"R{i+1}  {_price_fmt(res)}",
-                transform=ax.get_yaxis_transform(),
-                color=BEAR_COLOUR, fontsize=6.5, va="bottom", ha="right", alpha=0.7)
-
-    # Fibonacci labels
+    # ── Fibonacci right-side labels ────────────────────────────────────────────
     for ratio, level in fib_levels.items():
-        if ratio in _FIB_LABELS and level:
-            ax.text(0.50, level, f"Fib {ratio}  {_price_fmt(level)}",
-                    transform=ax.get_yaxis_transform(),
-                    color=FIB_COLOUR, fontsize=6.0, va="bottom", ha="center",
-                    alpha=0.65)
+        fc = _FIB_COLORS.get(ratio)
+        if fc and level:
+            ax.text(n - 1, level, f'  {ratio}  {_price_fmt(level)}',
+                    color=fc, fontsize=6, va='center', alpha=0.85)
 
-    # ── Trend arrows (top-right corner) ───────────────────────────────────────
-    trend_colours = {
-        "BULLISH": BULL_COLOUR,
-        "BEARISH": BEAR_COLOUR,
-        "RANGING": ENTRY_COLOUR,
-    }
-    trend_arrows = {
-        "BULLISH": "▲▲  BULLISH TREND",
-        "BEARISH": "▼▼  BEARISH TREND",
-        "RANGING": "⟺  RANGING",
-    }
-    ax.text(
-        0.98, 0.97,
-        trend_arrows.get(trend, trend),
-        transform=ax.transAxes,
-        color=trend_colours.get(trend, FG),
-        fontsize=9, va="top", ha="right",
-        fontweight="bold",
-        bbox=dict(boxstyle="round,pad=0.3", facecolor=BG, alpha=0.7,
-                  edgecolor=trend_colours.get(trend, FG), linewidth=0.8),
+    # ── Y-axis: right side only ────────────────────────────────────────────────
+    ax.yaxis.set_label_position("right")
+    ax.yaxis.tick_right()
+    ax.tick_params(axis="y", colors=TEXT_DIM, labelsize=7)
+
+    # ── X-axis ticks (on volume panel only) ───────────────────────────────────
+    step     = max(1, n // 8)
+    tick_pos = list(range(0, n, step))
+    tick_lbl = [df_plot.index[i].strftime("%b %d") for i in tick_pos]
+    ax_vol.set_xticks(tick_pos)
+    ax_vol.set_xticklabels(tick_lbl, fontsize=7, color=TEXT_DIM)
+    ax.tick_params(axis="x", which="both", bottom=False, labelbottom=False)
+
+    # ── Volume bars + MA ───────────────────────────────────────────────────────
+    for i in range(n):
+        vc = BULL_COLOUR if closes[i] >= opens[i] else BEAR_COLOUR
+        ax_vol.bar(i, vols[i], color=vc, alpha=0.7, width=0.7, zorder=2)
+
+    vol_ma = pd.Series(vols).rolling(window=20, min_periods=1).mean()
+    ax_vol.plot(range(n), vol_ma.values, color="#ffffff", alpha=0.3,
+                linewidth=1.0, zorder=3)
+    ax_vol.yaxis.set_visible(False)
+    for spine in ax_vol.spines.values():
+        spine.set_edgecolor(SPINE_COLOR)
+
+    # ── Title bar ─────────────────────────────────────────────────────────────
+    dir_arrow = "▲" if signal.direction == "LONG" else "▼"
+    title_txt = (
+        f"{signal.asset}  ·  {signal.market.upper()}  ·  "
+        f"{dir_arrow} {signal.direction}  ·  Confluence {signal.confluence_score}/6"
+    )
+    ax.set_title(
+        title_txt, fontsize=11, color=FG, pad=8, fontfamily="monospace",
+        bbox=dict(facecolor=BG_PANEL, edgecolor=SPINE_COLOR,
+                  boxstyle="square,pad=0.4"),
     )
 
-    # ── Confidence / R:R badge (top-left) ─────────────────────────────────────
-    badge_text = (
-        f"Confidence: {signal.confidence}%\n"
-        f"R:R  {signal.risk_reward}\n"
+    # Trend badge — top-right corner
+    trend = analysis.get("market_structure", {}).get("trend", "")
+    if trend:
+        badge_c = (BULL_COLOUR if "BULL" in trend.upper()
+                   else BEAR_COLOUR if "BEAR" in trend.upper()
+                   else TEXT_DIM)
+        ax.text(
+            0.995, 1.01, trend,
+            transform=ax.transAxes, color=badge_c,
+            fontsize=8, fontweight="bold", va="bottom", ha="right",
+            clip_on=False,
+            bbox=dict(facecolor=BG_PANEL, edgecolor=badge_c,
+                      boxstyle="round,pad=0.3"),
+        )
+
+    # ── Info box — top-left ────────────────────────────────────────────────────
+    info_txt = (
+        f"Confidence  {signal.confidence}%\n"
+        f"R:R         {signal.risk_reward:.2f} : 1\n"
         f"Confluence  {signal.confluence_score}/6"
     )
     ax.text(
-        0.02, 0.97, badge_text,
-        transform=ax.transAxes,
-        color=FG, fontsize=7.5, va="top", ha="left",
-        fontfamily="monospace",
-        bbox=dict(boxstyle="round,pad=0.4", facecolor=BG, alpha=0.75,
-                  edgecolor=TEXT_DIM, linewidth=0.6),
+        0.01, 0.97, info_txt,
+        transform=ax.transAxes, color=FG, fontsize=8,
+        va="top", ha="left", fontfamily="monospace",
+        bbox=dict(facecolor=BG_PANEL, edgecolor=SPINE_COLOR,
+                  alpha=0.90, boxstyle="square,pad=0.4"),
     )
 
-    # ── Legend ────────────────────────────────────────────────────────────────
+    # ── Legend ─────────────────────────────────────────────────────────────────
     legend_handles = [
-        mpatches.Patch(color=BEAR_COLOUR,  alpha=0.4, label="Supply zone"),
-        mpatches.Patch(color=BULL_COLOUR,  alpha=0.4, label="Demand zone"),
-        mpatches.Patch(color=ENTRY_COLOUR, alpha=0.5, label="Entry zone"),
-        mlines.Line2D([], [], color=BULL_COLOUR, linestyle="-",  linewidth=1.5, label="Target"),
-        mlines.Line2D([], [], color=BEAR_COLOUR, linestyle="-",  linewidth=1.5, label="Stop"),
-        mlines.Line2D([], [], color=BULL_COLOUR, linestyle="--", linewidth=0.8, label="Support"),
-        mlines.Line2D([], [], color=BEAR_COLOUR, linestyle="--", linewidth=0.8, label="Resistance"),
-        mlines.Line2D([], [], color=FIB_COLOUR,  linestyle=":",  linewidth=0.7, label="Fibonacci"),
+        mpatches.Patch(color=BEAR_COLOUR,  alpha=0.45, label="Supply Zone"),
+        mpatches.Patch(color=BULL_COLOUR,  alpha=0.45, label="Demand Zone"),
+        mpatches.Patch(color=ENTRY_COLOUR, alpha=0.55, label="Entry Zone"),
+        mlines.Line2D([], [], color=BULL_COLOUR, linewidth=2.0, label="Target"),
+        mlines.Line2D([], [], color=BEAR_COLOUR, linewidth=2.0, label="Stop"),
+        mlines.Line2D([], [], color="#aaaaaa",   linewidth=0.8,
+                      alpha=0.7, label="Fibonacci"),
     ]
     ax.legend(
         handles=legend_handles,
         loc="lower left",
-        fontsize=6.5,
-        framealpha=0.6,
-        facecolor=BG,
-        edgecolor=TEXT_DIM,
+        fontsize=7,
+        framealpha=0.65,
+        facecolor=BG_PANEL,
+        edgecolor=SPINE_COLOR,
         labelcolor=FG,
-        ncol=4,
-    )
-
-    # ── Watermark ─────────────────────────────────────────────────────────────
-    ax.text(
-        0.5, 0.5, "AI TRADING AGENT",
-        transform=ax.transAxes,
-        color=FG, alpha=0.04,
-        fontsize=36, fontweight="bold",
-        va="center", ha="center", rotation=30,
+        ncol=6,
+        borderpad=0.5,
+        handlelength=1.5,
     )
 
     # ── Save ──────────────────────────────────────────────────────────────────
+    fig.subplots_adjust(right=0.84, left=0.03, top=0.91, bottom=0.07)
     fig.savefig(output_path, dpi=150, bbox_inches="tight",
                 facecolor=BG, edgecolor="none")
     plt.close(fig)

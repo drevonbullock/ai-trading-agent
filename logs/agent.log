@@ -122,3 +122,31 @@
 2026-03-12 23:24:32  INFO      [telegram] send_message — OK (message_id=33)
 2026-03-12 23:24:32  INFO      Scan complete in 46.8s — 3/3 alerts delivered.
 2026-03-12 23:24:32  INFO      ────────────────────────────────────────────────────────────
+2026-03-13 00:12:23  INFO      AI Trading Agent — manual run
+2026-03-13 00:12:23  INFO      [telegram] send_message — OK (message_id=58)
+2026-03-13 00:12:23  INFO      ────────────────────────────────────────────────────────────
+2026-03-13 00:12:23  INFO      Scan started at 2026-03-13 04:12 UTC
+2026-03-13 00:12:27  INFO      Scan found 2 qualifying signal(s).
+2026-03-13 00:12:27  INFO      Processing signal: GBP_USD LONG  confidence=45%  R:R=2.36
+2026-03-13 00:12:27  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-13 00:12:28  WARNING   Could not build analysis dict for GBP_USD: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-13 00:12:33  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-13 00:12:33  INFO      Claude verdict for GBP_USD: CONDITIONAL_TAKE ⚠️
+2026-03-13 00:12:34  INFO      [telegram] send_message — OK (message_id=59)
+2026-03-13 00:12:34  INFO      [telegram] Signal text delivered for GBP_USD LONG
+2026-03-13 00:12:36  INFO      [telegram] send_photo — OK (message_id=60)
+2026-03-13 00:12:36  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/GBP-USD_forex_LONG.png
+2026-03-13 00:12:36  INFO      Alert delivered for GBP_USD LONG
+2026-03-13 00:12:37  INFO      Processing signal: BTC SHORT  confidence=40%  R:R=6.14
+2026-03-13 00:12:38  INFO      Chart saved: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-13 00:12:38  WARNING   Could not build analysis dict for BTC: run_full_analysis() missing 2 required positional arguments: 'symbol' and 'timeframe' — Claude prompt will be sparse.
+2026-03-13 00:12:48  INFO      HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-03-13 00:12:48  INFO      Claude verdict for BTC: SKIP ⚠️
+2026-03-13 00:12:48  INFO      [telegram] send_message — OK (message_id=61)
+2026-03-13 00:12:48  INFO      [telegram] Signal text delivered for BTC SHORT
+2026-03-13 00:12:51  INFO      [telegram] send_photo — OK (message_id=62)
+2026-03-13 00:12:51  INFO      [telegram] Chart image delivered: /Users/drevonbullock/ai-trading-agent/ai-trading-agent/charts/BTC_crypto_SHORT.png
+2026-03-13 00:12:51  INFO      Alert delivered for BTC SHORT
+2026-03-13 00:12:53  INFO      [telegram] send_message — OK (message_id=63)
+2026-03-13 00:12:53  INFO      Scan complete in 29.4s — 2/2 alerts delivered.
+2026-03-13 00:12:53  INFO      ────────────────────────────────────────────────────────────

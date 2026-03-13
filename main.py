@@ -34,6 +34,7 @@ from signal_agent.signal_engine import scan_all_markets, Signal
 from chart_agent.markup import generate_chart_for_signal
 from chart_agent.ta_analysis import run_full_analysis
 from utils.claude_client import analyze_signal
+from utils.paper_tracker import log_signal
 from alerts.telegram_bot import send_signal_alert, send_scan_summary, test_connection
 
 
@@ -103,7 +104,13 @@ def _process_signal(signal: Signal) -> bool:
             "confluence_summary": ", ".join(signal.conditions_met),
         }
 
-    # 3. Send Telegram alert ───────────────────────────────────────────────────
+    # 3. Log to paper trades CSV ──────────────────────────────────────────────
+    try:
+        log_signal(signal, claude_result)
+    except Exception as exc:
+        log.warning("paper_tracker.log_signal failed for %s: %s", signal.asset, exc)
+
+    # 4. Send Telegram alert ───────────────────────────────────────────────────
     try:
         ok = send_signal_alert(
             signal,

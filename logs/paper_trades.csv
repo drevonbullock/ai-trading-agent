@@ -1,0 +1,4 @@
+date,asset,market,direction,entry_low,entry_high,target,stop_loss,confidence,confluence,verdict,result,pnl_pct,notes
+2026-03-13 03:46,EUR_USD,forex,LONG,1.082,1.0835,1.091,1.078,74,4,BUY,WIN,2.35,test run
+2026-03-13 04:12,GBP_USD,forex,LONG,1.34352,1.34456,1.3516,1.34083,45,3,CONDITIONAL_TAKE,PENDING,,
+2026-03-13 04:12,BTC,crypto,SHORT,68105,68309,66742.9,68445.6,40,3,SKIP,PENDING,,

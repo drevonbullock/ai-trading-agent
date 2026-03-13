@@ -62,7 +62,7 @@ def build_scheduler() -> BlockingScheduler:
     """
     Create and configure the APScheduler instance.
 
-    Schedule: every 15 minutes, Monday–Friday only.
+    Schedule: twice per hour at :00 and :30, Monday–Friday only (48 scans/day).
     Timezone: UTC (markets use UTC for session boundaries).
     """
     scheduler = BlockingScheduler(timezone="UTC")
@@ -71,11 +71,11 @@ def build_scheduler() -> BlockingScheduler:
         _scan_job,
         trigger=CronTrigger(
             day_of_week="mon-fri",   # weekdays only
-            minute="*/15",           # every 15 minutes
+            minute="0,30",           # top of hour and half-past
             timezone="UTC",
         ),
         id="market_scan",
-        name="15-minute market scan",
+        name="30-minute market scan",
         max_instances=1,             # prevent overlapping runs
         coalesce=True,               # skip missed fires instead of stacking
         misfire_grace_time=120,      # tolerate up to 2-min delay before skipping
@@ -89,16 +89,17 @@ def build_scheduler() -> BlockingScheduler:
 if __name__ == "__main__":
     log.info("=" * 60)
     log.info("AI Trading Agent Scheduler starting up")
-    log.info("Schedule: every 15 minutes, Monday–Friday (UTC)")
+    log.info("Schedule: :00 and :30 every hour, Monday–Friday (UTC) — 48 scans/day")
     log.info("=" * 60)
 
     # ── Startup Telegram notification ─────────────────────────────────────────
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     try:
         send_message(
-            f"🤖 *AI Trading Agent online*\n"
+            f"🤖 <b>AI Trading Agent online</b>\n"
             f"Scheduler started at {now_str}\n"
-            f"Scanning every 15 min — Mon–Fri"
+            f"Scanning at :00 and :30 — Mon–Fri (48×/day)",
+            parse_mode="HTML",
         )
     except Exception as exc:
         log.warning("Startup Telegram notification failed: %s", exc)
@@ -110,15 +111,12 @@ if __name__ == "__main__":
     # ── Start blocking scheduler ──────────────────────────────────────────────
     scheduler = build_scheduler()
 
-    log.info("Scheduler running. Next jobs:")
-    for job in scheduler.get_jobs():
-        log.info("  %s — next fire: %s", job.name, job.next_run_time)
-
     try:
         scheduler.start()
+        log.info("Scheduler is live. Scans run at :00 and :30 every hour, Mon–Fri.")
     except (KeyboardInterrupt, SystemExit):
         log.info("Scheduler stopped by user.")
         try:
-            send_message("🛑 *AI Trading Agent* — scheduler stopped.")
+            send_message("🛑 <b>AI Trading Agent</b> — scheduler stopped.", parse_mode="HTML")
         except Exception:
             pass

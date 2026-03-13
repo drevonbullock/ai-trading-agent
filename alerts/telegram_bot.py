@@ -62,15 +62,15 @@ def _handle_response(resp: requests.Response, action: str) -> bool:
 
 def send_message(
     text: str,
-    parse_mode: str = "Markdown",
+    parse_mode: str = "HTML",
 ) -> bool:
     """
     Send a text message to the configured Telegram chat.
 
     Parameters
     ----------
-    text       : Message body (supports Markdown or HTML depending on parse_mode)
-    parse_mode : 'Markdown' | 'MarkdownV2' | 'HTML' (default: 'Markdown')
+    text       : Message body (HTML or plain text depending on parse_mode)
+    parse_mode : 'HTML' | 'Markdown' | 'MarkdownV2' (default: 'HTML')
 
     Returns
     -------
@@ -96,7 +96,7 @@ def send_message(
 def send_photo(
     image_path: str,
     caption: Optional[str] = None,
-    parse_mode: str = "Markdown",
+    parse_mode: str = "HTML",
 ) -> bool:
     """
     Send a photo file to the configured Telegram chat.
@@ -105,7 +105,7 @@ def send_photo(
     ----------
     image_path : Absolute or relative path to the image file.
     caption    : Optional caption text (max 1024 chars).
-    parse_mode : Caption formatting mode (default: 'Markdown').
+    parse_mode : Caption formatting mode (default: 'HTML').
 
     Returns
     -------
@@ -167,7 +167,7 @@ def send_signal_alert(
 
     # ── Step 1: text message ──────────────────────────────────────────────────
     text = generate_signal_message(signal, claude_analysis)
-    text_ok = send_message(text)
+    text_ok = send_message(text, parse_mode="HTML")
     results.append(text_ok)
 
     if text_ok:
@@ -192,11 +192,21 @@ def send_signal_alert(
     return all(results)
 
 
+_DIV = "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+_MARKET_ICON: Dict[str, str] = {
+    "crypto":      "₿",
+    "stocks":      "📈",
+    "forex":       "💱",
+    "commodities": "🛢️",
+}
+
+
 def send_scan_summary(signals: List[Signal]) -> bool:
     """
-    Send a brief scan completion summary to Telegram.
+    Send a scan completion summary to Telegram.
 
-    Shows total signal count and a breakdown by market.
+    Shows total signal count, per-market breakdown, and next scan time.
 
     Parameters
     ----------
@@ -207,25 +217,43 @@ def send_scan_summary(signals: List[Signal]) -> bool:
     True on success, False on any error.
     """
     if not signals:
-        text = "🔍 *Scan complete* — no qualifying signals found."
-        return send_message(text)
+        text = (
+            f"{_DIV}\n"
+            f"🔍 <b>SCAN COMPLETE</b>\n"
+            f"{_DIV}\n"
+            f"No qualifying signals found.\n"
+            f"\n"
+            f"🕐 Next scan in 30 min\n"
+            f"{_DIV}"
+        )
+        return send_message(text, parse_mode="HTML")
 
     # Count per market
     markets: Dict[str, int] = {}
     for s in signals:
         markets[s.market] = markets.get(s.market, 0) + 1
 
+    count_word = f"{len(signals)} signal{'s' if len(signals) != 1 else ''} found"
+
     breakdown_lines = []
     for market, count in sorted(markets.items()):
-        icon = {"crypto": "₿", "stocks": "📈", "forex": "💱", "commodities": "🛢️"}.get(market, "•")
-        breakdown_lines.append(f"  {icon} {market.capitalize()}: {count}")
+        icon = _MARKET_ICON.get(market, "•")
+        breakdown_lines.append(f"{icon} {market.capitalize():<12}{count}")
 
     breakdown = "\n".join(breakdown_lines)
+
     text = (
-        f"🔍 *Scan complete* — {len(signals)} signal{'s' if len(signals) != 1 else ''} found\n\n"
-        f"{breakdown}"
+        f"{_DIV}\n"
+        f"🔍 <b>SCAN COMPLETE</b>\n"
+        f"{_DIV}\n"
+        f"{count_word}\n"
+        f"\n"
+        f"{breakdown}\n"
+        f"\n"
+        f"🕐 Next scan in 30 min\n"
+        f"{_DIV}"
     )
-    return send_message(text)
+    return send_message(text, parse_mode="HTML")
 
 
 def test_connection() -> bool:
@@ -236,8 +264,8 @@ def test_connection() -> bool:
     -------
     True if the test message was delivered successfully.
     """
-    text = "✅ *AI Trading Agent* — Telegram connection verified."
-    ok   = send_message(text, parse_mode="Markdown")
+    text = "✅ <b>AI Trading Agent</b> — Telegram connection verified."
+    ok   = send_message(text, parse_mode="HTML")
     if ok:
         print("[telegram] test_connection OK — bot is live.")
     else:

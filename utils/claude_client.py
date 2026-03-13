@@ -103,9 +103,16 @@ def analyze_signal(signal: Signal, analysis: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-def _safe(text: str) -> str:
-    """Escape underscores so Telegram Markdown doesn't misparse asset names."""
-    return text.replace("_", r"\_")
+_DIV = "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+
+def _fmt(price: float) -> str:
+    """Format a price with commas and up to 5 significant digits."""
+    if price >= 1000:
+        return f"{price:,.0f}"
+    if price >= 1:
+        return f"{price:,.3f}"
+    return f"{price:.5g}"
 
 
 def generate_signal_message(
@@ -113,40 +120,58 @@ def generate_signal_message(
     claude_analysis: Dict[str, Any],
 ) -> str:
     """
-    Build a formatted Telegram-ready message string from a signal + Claude analysis.
+    Build a formatted Telegram-ready HTML message from a signal + Claude analysis.
 
-    Returns plain text with emoji decoration suitable for Telegram Markdown.
+    Returns HTML suitable for Telegram parse_mode='HTML'.
     """
     direction_emoji = "🟢" if signal.direction == "LONG" else "🔴"
-    verdict         = _safe(claude_analysis.get("verdict", "—"))
+    verdict         = claude_analysis.get("verdict", "—")
     verdict_emoji   = claude_analysis.get("verdict_emoji", "")
     narrative       = claude_analysis.get("narrative", "—")
     risk_note       = claude_analysis.get("risk_note", "—")
     confluence_sum  = claude_analysis.get("confluence_summary", "—")
-    asset           = _safe(signal.asset)
+
+    market_label = signal.market.upper()
+    ts           = signal.timestamp[:16].replace("T", " ")
 
     entry_zone = (
-        f"{signal.entry_low:.5g} – {signal.entry_high:.5g}"
+        f"{_fmt(signal.entry_low)} – {_fmt(signal.entry_high)}"
         if signal.entry_low != signal.entry_high
-        else f"{signal.entry_low:.5g}"
+        else _fmt(signal.entry_low)
     )
 
     lines = [
-        f"{direction_emoji} *{asset}* — {signal.direction}  {verdict_emoji} {verdict}",
-        f"",
-        f"📍 *Entry zone:*  {entry_zone}",
-        f"🎯 *Target:*      {signal.target:.5g}",
-        f"🛑 *Stop loss:*   {signal.stop_loss:.5g}",
-        f"⚖️ *R:R:*          {signal.risk_reward:.2f}",
-        f"🔥 *Confidence:*  {signal.confidence}/100",
-        f"",
-        f"📊 *Analysis:*",
-        f"{narrative}",
-        f"",
-        f"🔗 *Confluences:* {confluence_sum}",
-        f"⚠️ *Risk:* {risk_note}",
-        f"",
-        f"🕐 {signal.timestamp[:16].replace('T', ' ')} UTC",
+        _DIV,
+        "🤖 <b>AI TRADING SIGNAL</b>",
+        _DIV,
+        "",
+        f"{direction_emoji} <b>{signal.asset} · {market_label} · {signal.direction}</b>",
+        f"🕐 {ts} UTC",
+        "",
+        _DIV,
+        "<b>TRADE SETUP</b>",
+        _DIV,
+        f"📍 Entry      <code>{entry_zone}</code>",
+        f"🎯 Target     <code>{_fmt(signal.target)}</code>",
+        f"🛑 Stop       <code>{_fmt(signal.stop_loss)}</code>",
+        f"⚖️ R:R         <b>{signal.risk_reward:.2f} : 1</b>",
+        f"🔥 Confidence  <b>{signal.confidence}%</b>",
+        "",
+        _DIV,
+        "<b>ANALYSIS</b>",
+        _DIV,
+        narrative,
+        "",
+        _DIV,
+        f"<b>CONFLUENCE  {signal.confluence_score} / 6</b>",
+        _DIV,
+        confluence_sum,
+        "",
+        f"⚠️ <b>RISK:</b> {risk_note}",
+        "",
+        _DIV,
+        f"<b>VERDICT:  {verdict_emoji} {verdict}</b>",
+        _DIV,
     ]
 
     return "\n".join(lines)
@@ -158,32 +183,28 @@ def generate_chart_caption(
     claude_analysis: Dict[str, Any],
 ) -> str:
     """
-    Generate a short caption for a chart image (Telegram photo caption limit: 1024 chars).
-
-    Returns a compact plain-text caption.
+    Generate a compact HTML caption for a chart image (Telegram limit: 1024 chars).
     """
-    direction_emoji = "🟢" if signal.direction == "LONG" else "🔴"
-    verdict         = claude_analysis.get("verdict", "—")
-    verdict_emoji   = claude_analysis.get("verdict_emoji", "")
-    narrative       = claude_analysis.get("narrative", "—")
+    verdict       = claude_analysis.get("verdict", "—")
+    verdict_emoji = claude_analysis.get("verdict_emoji", "")
+    narrative     = claude_analysis.get("narrative", "—")
 
-    # Trim narrative to first sentence for brevity
     first_sentence = narrative.split(".")[0].strip() + "."
 
-    caption = (
-        f"{direction_emoji} {_safe(signal.asset)}  {signal.direction}  |  "
-        f"{verdict_emoji} {_safe(verdict)}\n"
-        f"Entry {signal.entry_low:.5g}–{signal.entry_high:.5g}  "
-        f"TP {signal.target:.5g}  SL {signal.stop_loss:.5g}  "
-        f"R:R {signal.risk_reward:.2f}\n"
-        f"{first_sentence}\n"
-        f"Bias: {analysis.get('bias', '—')}  |  "
-        f"Confluence: {signal.confluence_score}/6  |  "
-        f"Score: {signal.confidence}/100"
+    entry_zone = (
+        f"{_fmt(signal.entry_low)}–{_fmt(signal.entry_high)}"
+        if signal.entry_low != signal.entry_high
+        else _fmt(signal.entry_low)
     )
 
-    # Hard cap for Telegram caption
-    return caption[:1024]
+    lines = [
+        f"📊 <b>{signal.asset} · {signal.direction} · Confluence {signal.confluence_score}/6</b>",
+        f"📍 Entry {entry_zone}  🎯 TP {_fmt(signal.target)}  🛑 SL {_fmt(signal.stop_loss)}",
+        f"⚖️ R:R {signal.risk_reward:.2f}  🔥 {signal.confidence}% confidence",
+        f"{verdict_emoji} {verdict} — {first_sentence}",
+    ]
+
+    return "\n".join(lines)[:1024]
 
 
 # ── Module load confirmation ───────────────────────────────────────────────────
