@@ -2,7 +2,7 @@ anthropic
 requests
 python-dotenv
 pandas
-pandas-ta
+ta
 matplotlib
 mplfinance
 alpaca-trade-api
