@@ -82,7 +82,7 @@ def get_price_data(coin_id: str) -> dict:
         return {}
 
 
-def get_ohlcv(coin_id: str, days: int = 7) -> List[Dict[str, Any]]:
+def get_ohlcv(coin_id: str, days: int = 500) -> List[Dict[str, Any]]:
     """
     Fetch OHLCV candle data for a coin.
 

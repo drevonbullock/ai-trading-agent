@@ -15,6 +15,11 @@ import pandas as pd
 
 from chart_agent.ta_analysis import run_full_analysis
 from data_feeds import crypto, stocks, forex, commodities
+from signal_agent.conditions import (
+    check_trend_filter,
+    check_momentum,
+    check_volume_confirmation,
+)
 
 
 # ── Watchlist ─────────────────────────────────────────────────────────────────
@@ -46,7 +51,10 @@ _DISPLAY_SYMBOL: Dict[str, str] = {
 _MIN_CANDLES = 20
 
 # Minimum confluence score to emit a signal
-_MIN_CONFLUENCE = 3
+_MIN_CONFLUENCE = 5
+
+# Minimum risk-reward ratio to emit a signal
+_MIN_RR = 2.5
 
 
 # ── Signal dataclass ──────────────────────────────────────────────────────────
@@ -155,12 +163,84 @@ def build_dataframe(ohlcv_data: List[Dict[str, Any]], market: str) -> pd.DataFra
         return pd.DataFrame()
 
 
+# ── Swing-Based Stop Helper ───────────────────────────────────────────────────
+
+def _find_swing_stop(df: pd.DataFrame, direction: str) -> Optional[float]:
+    """
+    Locate the most recent opposing swing point across the last 3 swings and
+    place the stop 0.1% beyond it.
+
+    LONG  : stop 0.1% below the most recent swing low.
+    SHORT : stop 0.1% above the most recent swing high.
+
+    Returns None when there are too few candles for swing detection.
+    """
+    order = 3
+    n     = len(df)
+
+    if direction == "LONG":
+        lows: List[float] = []
+        for i in range(order, n - order):
+            window = df["low"].iloc[i - order: i + order + 1]
+            if float(df["low"].iloc[i]) == float(window.min()):
+                lows.append(float(df["low"].iloc[i]))
+        if lows:
+            recent = lows[-3:]
+            return round(recent[-1] * 0.999, 6)  # 0.1% below most recent swing low
+
+    else:  # SHORT
+        highs: List[float] = []
+        for i in range(order, n - order):
+            window = df["high"].iloc[i - order: i + order + 1]
+            if float(df["high"].iloc[i]) == float(window.max()):
+                highs.append(float(df["high"].iloc[i]))
+        if highs:
+            recent = highs[-3:]
+            return round(recent[-1] * 1.001, 6)  # 0.1% above most recent swing high
+
+    return None
+
+
+# ── Entry Zone Structure Validation ───────────────────────────────────────────
+
+def _validate_entry_near_structure(
+    entry_low: float,
+    entry_high: float,
+    analysis: Dict[str, Any],
+) -> bool:
+    """
+    Return True only if the entry zone midpoint is within 0.3% of at least
+    one structural level: support, resistance, or a supply/demand zone edge.
+
+    Signals whose entry floats in open space with no nearby structure are
+    rejected to avoid low-probability entries.
+    """
+    entry_mid = (entry_low + entry_high) / 2.0
+    threshold = 0.003  # 0.3%
+
+    kl  = analysis.get("key_levels", {})
+    sdz = analysis.get("supply_demand_zones", {})
+
+    all_levels: List[float] = (
+        list(kl.get("support", [])) + list(kl.get("resistance", []))
+    )
+    for zone in sdz.get("demand_zones", []) + sdz.get("supply_zones", []):
+        all_levels.append(zone["top"])
+        all_levels.append(zone["bottom"])
+
+    for level in all_levels:
+        if level and abs(entry_mid - level) / max(abs(entry_mid), 1e-9) <= threshold:
+            return True
+    return False
+
+
 # ── Entry / Target / Stop ─────────────────────────────────────────────────────
 
 def calculate_entry_target_stop(
     analysis: Dict[str, Any],
     direction: str,
     current_price: float,
+    df: Optional[pd.DataFrame] = None,
 ) -> Tuple[float, float, float, float, float]:
     """
     Derive entry zone (low, high), profit target, stop-loss, and R:R ratio
@@ -169,12 +249,15 @@ def calculate_entry_target_stop(
     Priority order for each level:
       Entry zone  -- nearest supply/demand zone edge, or key level, or 0.2% band
       Target      -- next key level beyond entry, or nearest Fib level
-      Stop        -- beyond the nearest supply/demand zone, or beyond key level
+      Stop        -- beyond nearest swing point (0.1% past last swing in opposing
+                     direction); falls back to structure-based stop when no swing
+                     is detectable
 
     Args:
         analysis      : dict returned by run_full_analysis()
         direction     : 'LONG' | 'SHORT'
         current_price : float
+        df            : optional OHLCV DataFrame used for swing-based stop
 
     Returns:
         (entry_low, entry_high, target, stop_loss, risk_reward)
@@ -213,8 +296,11 @@ def calculate_entry_target_stop(
         else:
             target = round(entry_high * 1.02, 6)
 
-        # Stop
-        if demand_zones:
+        # Stop: swing-based first, then fall back to structure
+        swing_stop = _find_swing_stop(df, "LONG") if df is not None else None
+        if swing_stop is not None:
+            stop_loss = swing_stop
+        elif demand_zones:
             stop_loss = round(demand_zones[0]["bottom"] * 0.998, 6)
         elif len(supports) > 1:
             stop_loss = round(supports[1] * 0.998, 6)
@@ -245,8 +331,11 @@ def calculate_entry_target_stop(
         else:
             target = round(entry_low * 0.98, 6)
 
-        # Stop
-        if supply_zones:
+        # Stop: swing-based first, then fall back to structure
+        swing_stop = _find_swing_stop(df, "SHORT") if df is not None else None
+        if swing_stop is not None:
+            stop_loss = swing_stop
+        elif supply_zones:
             stop_loss = round(supply_zones[0]["top"] * 1.002, 6)
         elif len(resistances) > 1:
             stop_loss = round(resistances[1] * 1.002, 6)
@@ -417,8 +506,13 @@ def generate_signal(symbol: str, market: str) -> Optional[Signal]:
         print(f"[signal] TA failed for {display} ({market}): {e}")
         return None
 
-    # Reject weak confluence
-    confluence = analysis.get("confluence_score", 0)
+    # Apply HTF agreement penalty before initial confluence check
+    confluence    = analysis.get("confluence_score", 0)
+    htf_agreement = analysis.get("htf_agreement", True)
+    if not htf_agreement:
+        confluence = max(0, confluence - 2)
+        print(f"[signal] {display}: HTF disagreement — confluence reduced to {confluence}")
+
     if confluence < _MIN_CONFLUENCE:
         print(f"[signal] {display} ({market}): confluence {confluence} < {_MIN_CONFLUENCE} -- skipping")
         return None
@@ -440,19 +534,50 @@ def generate_signal(symbol: str, market: str) -> Optional[Signal]:
         else:
             direction, confidence, conditions = "SHORT", short_score, short_conds
 
-    # Calculate levels
+    # -- Trend filter: hard block if trading against EMA50/200 --
+    trend_passed, trend_score, trend_reason = check_trend_filter(df, direction)
+    if not trend_passed:
+        print(f"[signal] {display}: {trend_reason} -- skipping")
+        return None
+    confidence = min(100, confidence + trend_score)
+    conditions.append(trend_reason)
+
+    # -- Volume confirmation: hard reject if < 50% of 20-period avg --
+    vol_passed, vol_delta, vol_warnings = check_volume_confirmation(df)
+    if not vol_passed:
+        print(f"[signal] {display}: {vol_warnings[0]} -- skipping")
+        return None
+    confidence = max(0, min(100, confidence + vol_delta))
+    conditions.extend(vol_warnings)
+
+    # -- Momentum confirmation: +15 pts --
+    trend      = analysis["market_structure"]["trend"]
+    is_ranging = trend == "RANGING"
+    mom_score, mom_reason = check_momentum(df, direction, is_ranging)
+    confidence = min(100, confidence + mom_score)
+    conditions.append(mom_reason)
+
+    # -- HTF disagreement note --
+    if not htf_agreement:
+        conditions.append("HTF disagreement: confluence reduced by 2")
+
+    # Calculate levels with swing-based stop loss
     current_price = analysis["key_levels"].get("current_price", float(df["close"].iloc[-1]))
     entry_low, entry_high, target, stop_loss, rr = calculate_entry_target_stop(
-        analysis, direction, current_price
+        analysis, direction, current_price, df
     )
 
+    # -- Entry zone must be anchored to nearby structure --
+    if not _validate_entry_near_structure(entry_low, entry_high, analysis):
+        print(f"[signal] {display}: entry zone not anchored to structure -- skipping")
+        return None
+
     # Reject poor R:R
-    if rr < 1.5:
-        print(f"[signal] {display}: R:R {rr} < 1.5 -- skipping")
+    if rr < _MIN_RR:
+        print(f"[signal] {display}: R:R {rr} < {_MIN_RR} -- skipping")
         return None
 
     # Build reasoning string
-    trend       = analysis["market_structure"]["trend"]
     pa_patterns = analysis["price_action"]["patterns"]
     vol_signal  = analysis["volume"]["signal"]
 
@@ -463,6 +588,8 @@ def generate_signal(symbol: str, market: str) -> Optional[Signal]:
         parts.append("volume confirming")
     elif vol_signal == "DIVERGING":
         parts.append("volume diverging")
+    if not htf_agreement:
+        parts.append("HTF disagreement")
     reasoning = " | ".join(parts)
 
     return Signal(
@@ -521,7 +648,7 @@ def scan_all_markets(
 
 
 # ── Module load confirmation ──────────────────────────────────────────────────
-print("[signal_engine] Signal engine loaded successfully.")
+print(f"[signal_engine] Signal engine loaded — min_confluence={_MIN_CONFLUENCE}  min_rr={_MIN_RR}")
 
 
 # ── Standalone test ───────────────────────────────────────────────────────────

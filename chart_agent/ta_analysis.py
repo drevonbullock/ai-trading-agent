@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
-import ta
+import ta 
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -528,6 +528,54 @@ def _score_confluence(
     return score, reasons
 
 
+# ── 7b. Higher-Timeframe Structure (synthetic 3× grouping) ───────────────────
+
+def get_htf_structure(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Build a synthetic higher timeframe by grouping every 3 consecutive candles
+    into a single OHLCV bar, then determine market structure on that series.
+
+    This gives a rough HTF view without requiring a separate data fetch.
+    At least 6 HTF bars (18 LTF candles) are required for a valid read.
+
+    Returns dict with:
+      trend        : "BULLISH" | "BEARISH" | "RANGING"
+      candle_count : int (number of HTF bars built)
+    """
+    df = _validate(df)
+    n          = len(df)
+    group_size = 3
+    usable     = n - (n % group_size)  # trim to complete groups
+
+    records = []
+    for start in range(0, usable, group_size):
+        chunk = df.iloc[start:start + group_size]
+        records.append({
+            "open":   float(chunk["open"].iloc[0]),
+            "high":   float(chunk["high"].max()),
+            "low":    float(chunk["low"].min()),
+            "close":  float(chunk["close"].iloc[-1]),
+            "volume": float(chunk["volume"].sum()),
+        })
+
+    if len(records) < 6:
+        return {
+            "trend":        "RANGING",
+            "candle_count": len(records),
+            "error":        "Insufficient HTF candles for structure analysis",
+        }
+
+    htf_df    = pd.DataFrame(records)
+    structure = get_market_structure(htf_df)
+
+    return {
+        "trend":           structure["trend"],
+        "candle_count":    len(records),
+        "last_swing_high": structure.get("last_swing_high"),
+        "last_swing_low":  structure.get("last_swing_low"),
+    }
+
+
 # ── 8. Master Runner ──────────────────────────────────────────────────────────
 
 def run_full_analysis(
@@ -560,11 +608,21 @@ def run_full_analysis(
     sd_zones   = get_supply_demand_zones(df)
     pa         = get_price_action(df)
     volume     = get_volume_analysis(df)
+    htf        = get_htf_structure(df)
 
     score, reasons = _score_confluence(structure, key_levels, fib, sd_zones, pa, volume)
 
+    # HTF agreement: True when both timeframes align or either is RANGING (neutral)
+    ltf_trend     = structure.get("trend", "RANGING")
+    htf_trend     = htf.get("trend", "RANGING")
+    htf_agreement = (
+        ltf_trend == "RANGING"
+        or htf_trend == "RANGING"
+        or htf_trend == ltf_trend
+    )
+
     # Overall bias
-    trend = structure.get("trend", "RANGING")
+    trend = ltf_trend
     patterns = pa.get("patterns", [])
     bullish_pa = any(p in patterns for p in ("bullish_engulfing", "pin_bar_bullish", "liquidity_sweep_low"))
     bearish_pa = any(p in patterns for p in ("bearish_engulfing", "pin_bar_bearish", "liquidity_sweep_high"))
@@ -593,6 +651,8 @@ def run_full_analysis(
         "confluence_score":     score,
         "confluence_reasons":   reasons,
         "bias":                 bias,
+        "htf_structure":        htf,
+        "htf_agreement":        htf_agreement,
     }
 
 
