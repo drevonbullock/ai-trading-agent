@@ -58,7 +58,7 @@ _DISPLAY_SYMBOL: Dict[str, str] = {
 _MIN_CANDLES = 20
 
 # Minimum confluence score to emit a signal
-_MIN_CONFLUENCE = 5
+_MIN_CONFLUENCE = 4
 
 # Minimum risk-reward ratio to emit a signal
 _MIN_RR = 2.5

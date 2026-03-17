@@ -166,3 +166,19 @@
 2026-03-17 10:25:32  INFO      [telegram] send_message — OK (message_id=170)
 2026-03-17 10:25:32  INFO      Scan complete in 5.9s — 0/0 alerts delivered.
 2026-03-17 10:25:32  INFO      ────────────────────────────────────────────────────────────
+2026-03-17 10:33:43  INFO      AI Trading Agent — manual run
+2026-03-17 10:33:43  INFO      [telegram] send_message — OK (message_id=172)
+2026-03-17 10:33:43  INFO      ────────────────────────────────────────────────────────────
+2026-03-17 10:33:43  INFO      Scan started at 2026-03-17 14:33 UTC
+2026-03-17 10:33:49  INFO      Scan found 0 qualifying signal(s).
+2026-03-17 10:33:50  INFO      [telegram] send_message — OK (message_id=173)
+2026-03-17 10:33:50  INFO      Scan complete in 7.0s — 0/0 alerts delivered.
+2026-03-17 10:33:50  INFO      ────────────────────────────────────────────────────────────
+2026-03-17 10:34:47  INFO      AI Trading Agent — manual run
+2026-03-17 10:34:48  INFO      [telegram] send_message — OK (message_id=174)
+2026-03-17 10:34:48  INFO      ────────────────────────────────────────────────────────────
+2026-03-17 10:34:48  INFO      Scan started at 2026-03-17 14:34 UTC
+2026-03-17 10:34:53  INFO      Scan found 0 qualifying signal(s).
+2026-03-17 10:34:54  INFO      [telegram] send_message — OK (message_id=175)
+2026-03-17 10:34:54  INFO      Scan complete in 5.5s — 0/0 alerts delivered.
+2026-03-17 10:34:54  INFO      ────────────────────────────────────────────────────────────
