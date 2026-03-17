@@ -1,7 +1,9 @@
 """
 scheduler.py
 APScheduler-based scheduler for the AI Trading Agent.
-Runs run_scan() every 15 minutes on weekdays only.
+Runs run_scan() at :00 and :30 every hour, 7 days a week.
+Weekdays (Mon–Fri): all markets — crypto, forex, stocks, commodities.
+Weekends (Sat–Sun): crypto and commodities only (forex/stocks are closed).
 """
 from __future__ import annotations
 
@@ -46,8 +48,19 @@ from alerts.telegram_bot import send_message
 def _scan_job() -> None:
     """Wrapper called by APScheduler — catches all exceptions so the scheduler stays alive."""
     log.info("Scheduled scan triggered.")
+
+    # Determine which markets to scan based on day of week (UTC).
+    # weekday() returns 5 for Saturday, 6 for Sunday.
+    weekday = datetime.utcnow().weekday()
+    if weekday >= 5:  # weekend
+        markets = ["crypto", "commodities"]
+        log.info("Weekend mode — scanning crypto and commodities only (forex/stocks closed).")
+    else:
+        markets = ["crypto", "forex", "stocks", "commodities"]
+        log.info("Weekday mode — scanning all markets.")
+
     try:
-        run_scan()
+        run_scan(markets=markets)
     except Exception as exc:
         log.error("run_scan() raised an unhandled exception: %s", exc, exc_info=True)
         try:
@@ -70,8 +83,7 @@ def build_scheduler() -> BlockingScheduler:
     scheduler.add_job(
         _scan_job,
         trigger=CronTrigger(
-            day_of_week="mon-fri",   # weekdays only
-            minute="0,30",           # top of hour and half-past
+            minute="0,30",           # top of hour and half-past, every day
             timezone="UTC",
         ),
         id="market_scan",
@@ -89,7 +101,8 @@ def build_scheduler() -> BlockingScheduler:
 if __name__ == "__main__":
     log.info("=" * 60)
     log.info("AI Trading Agent Scheduler starting up")
-    log.info("Schedule: :00 and :30 every hour, Monday–Friday (UTC) — 48 scans/day")
+    log.info("Schedule: :00 and :30 every hour, 7 days (UTC) — 48 scans/day")
+    log.info("Weekdays: all markets | Weekends: crypto + commodities only")
     log.info("=" * 60)
 
     # ── Startup Telegram notification ─────────────────────────────────────────
@@ -98,7 +111,8 @@ if __name__ == "__main__":
         send_message(
             f"🤖 <b>AI Trading Agent online</b>\n"
             f"Scheduler started at {now_str}\n"
-            f"Scanning at :00 and :30 — Mon–Fri (48×/day)",
+            f"Scanning at :00 and :30 — 7 days/week (48×/day)\n"
+            f"Weekdays: all markets | Weekends: crypto + commodities only",
             parse_mode="HTML",
         )
     except Exception as exc:
@@ -113,7 +127,7 @@ if __name__ == "__main__":
 
     try:
         scheduler.start()
-        log.info("Scheduler is live. Scans run at :00 and :30 every hour, Mon–Fri.")
+        log.info("Scheduler is live. Scans run at :00 and :30 every hour, 7 days/week.")
     except (KeyboardInterrupt, SystemExit):
         log.info("Scheduler stopped by user.")
         try:

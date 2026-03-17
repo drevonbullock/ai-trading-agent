@@ -25,26 +25,33 @@ from signal_agent.conditions import (
 # ── Watchlist ─────────────────────────────────────────────────────────────────
 
 WATCHLIST: Dict[str, List[str]] = {
-    "crypto":      ["bitcoin", "ethereum", "solana"],
+    "crypto":      ["bitcoin", "ethereum", "solana", "cardano", "binancecoin", "ripple"],
     "stocks":      ["SPY", "TSLA"],
-    "forex":       ["EUR_USD", "GBP_USD"],
-    "commodities": ["WTI", "WHEAT"],
+    "forex":       [
+        "EUR_USD", "GBP_USD",
+        "GBP_JPY", "USD_JPY", "AUD_USD", "USD_CAD", "EUR_GBP", "EUR_JPY", "NZD_USD",
+    ],
+    "commodities": ["WTI", "WHEAT", "GLD", "SLV"],
 }
 
 # Default OHLCV fetch params per market
 _OHLCV_PARAMS: Dict[str, Dict[str, Any]] = {
     "crypto":      {"days": 30},
     "stocks":      {"timeframe": "1Day", "limit": 60},
-    "forex":       {"granularity": "H4", "count": 100},
+    "forex":       {"granularity": "H4", "count": 300},
     "commodities": {"outputsize": "compact"},
 }
 
-# Display symbol override (CoinGecko IDs -> tickers)
+# Display symbol override (CoinGecko IDs / feed keys -> tickers)
 _DISPLAY_SYMBOL: Dict[str, str] = {
     "bitcoin":     "BTC",
     "ethereum":    "ETH",
     "solana":      "SOL",
+    "cardano":     "ADA",
     "binancecoin": "BNB",
+    "ripple":      "XRP",
+    "GLD":         "XAUUSD",  # Gold ETF proxy
+    "SLV":         "XAGUSD",  # Silver ETF proxy
 }
 
 # Minimum candles required before analysis is meaningful
@@ -343,6 +350,14 @@ def calculate_entry_target_stop(
             stop_loss = round(resistances[0] * 1.004, 6)
         else:
             stop_loss = round(price * 1.02, 6)
+
+    # Safety guard: stop must always be on the correct side of the entry zone.
+    # A swing lookup can return a level that is on the wrong side when the most
+    # recent swing is inside the entry zone or below/above it.
+    if direction == "LONG" and stop_loss >= entry_low:
+        stop_loss = round(entry_low * 0.99, 6)
+    elif direction == "SHORT" and stop_loss <= entry_high:
+        stop_loss = round(entry_high * 1.01, 6)
 
     entry_mid   = (entry_low + entry_high) / 2
     risk        = abs(entry_mid - stop_loss)

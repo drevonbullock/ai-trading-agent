@@ -202,7 +202,7 @@ _MARKET_ICON: Dict[str, str] = {
 }
 
 
-def send_scan_summary(signals: List[Signal]) -> bool:
+def send_scan_summary(signals: List[Signal], weekend_mode: bool = False) -> bool:
     """
     Send a scan completion summary to Telegram.
 
@@ -211,18 +211,22 @@ def send_scan_summary(signals: List[Signal]) -> bool:
     Parameters
     ----------
     signals : List of Signal objects emitted during the scan.
+    weekend_mode : When True, appends a note that only crypto and commodities
+                  were scanned (forex/stocks closed on weekends).
 
     Returns
     -------
     True on success, False on any error.
     """
+    mode_line = "\n🗓️ <i>Weekend mode — Crypto &amp; Commodities only</i>" if weekend_mode else ""
+
     if not signals:
         text = (
             f"{_DIV}\n"
             f"🔍 <b>SCAN COMPLETE</b>\n"
             f"{_DIV}\n"
             f"No qualifying signals found.\n"
-            f"\n"
+            f"{mode_line}\n"
             f"🕐 Next scan in 30 min\n"
             f"{_DIV}"
         )
@@ -249,7 +253,7 @@ def send_scan_summary(signals: List[Signal]) -> bool:
         f"{count_word}\n"
         f"\n"
         f"{breakdown}\n"
-        f"\n"
+        f"{mode_line}\n"
         f"🕐 Next scan in 30 min\n"
         f"{_DIV}"
     )

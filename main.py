@@ -128,24 +128,41 @@ def _process_signal(signal: Signal) -> bool:
         return False
 
 
-def run_scan() -> List[Signal]:
+def run_scan(markets: Optional[List[str]] = None) -> List[Signal]:
     """
     Full market scan pipeline.
 
-    1. Scan all markets for qualifying signals.
+    1. Scan markets for qualifying signals.
     2. For each signal: chart + Claude analysis + Telegram alert.
     3. Send scan summary.
 
+    Parameters
+    ----------
+    markets : Optional list of market keys to scan (e.g. ["crypto", "commodities"]).
+              Defaults to None, which scans all four markets.
+
     Returns the list of Signal objects emitted during this scan.
     """
+    from signal_agent.signal_engine import WATCHLIST
+
     start = time.monotonic()
     now   = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    weekend_mode = markets is not None and set(markets) == {"crypto", "commodities"}
+
     log.info("─" * 60)
     log.info("Scan started at %s", now)
+    if weekend_mode:
+        log.info("Weekend mode — scanning crypto and commodities only.")
+
+    # Build filtered watchlist when markets are restricted
+    if markets is not None:
+        active_watchlist = {k: v for k, v in WATCHLIST.items() if k in markets}
+    else:
+        active_watchlist = None  # scan_all_markets will use its default
 
     # ── Scan ──────────────────────────────────────────────────────────────────
     try:
-        signals = scan_all_markets()
+        signals = scan_all_markets(watchlist=active_watchlist)
     except Exception as exc:
         log.error("scan_all_markets() raised: %s", exc)
         signals = []
@@ -163,7 +180,7 @@ def run_scan() -> List[Signal]:
 
     # ── Summary ───────────────────────────────────────────────────────────────
     try:
-        send_scan_summary(signals)
+        send_scan_summary(signals, weekend_mode=weekend_mode)
     except Exception as exc:
         log.error("send_scan_summary() raised: %s", exc)
 

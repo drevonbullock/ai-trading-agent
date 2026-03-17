@@ -92,7 +92,7 @@ def get_price_data(instrument: str) -> Dict[str, Any]:
 def get_ohlcv(
     instrument: str,
     granularity: str = "H4",
-    count: int = 7,
+    count: int = 300,
 ) -> List[Dict[str, Any]]:
     """
     Fetch historical OHLCV candles for a forex instrument.

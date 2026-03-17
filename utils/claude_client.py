@@ -10,10 +10,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import json
+import logging
 from typing import Any, Dict, Optional
 
 import anthropic
 from dotenv import load_dotenv
+
+log = logging.getLogger(__name__)
 
 from signal_agent.signal_engine import Signal
 
@@ -74,12 +77,23 @@ def analyze_signal(signal: Signal, analysis: Dict[str, Any]) -> Dict[str, Any]:
         f"{json.dumps(payload, indent=2)}"
     )
 
-    response = _client().messages.create(
-        model=_MODEL,
-        max_tokens=512,
-        system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        response = _client().messages.create(
+            model=_MODEL,
+            max_tokens=512,
+            system=_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+            timeout=30,
+        )
+    except anthropic.APITimeoutError as exc:
+        log.error("[claude_client] API call timed out after 30s for %s: %s", signal.asset, exc)
+        raise
+    except anthropic.APIStatusError as exc:
+        log.error("[claude_client] API status error for %s — status=%s body=%s", signal.asset, exc.status_code, exc.body)
+        raise
+    except Exception as exc:
+        log.error("[claude_client] Unexpected error calling Claude for %s: %s", signal.asset, exc, exc_info=True)
+        raise
 
     raw = response.content[0].text.strip()
 
